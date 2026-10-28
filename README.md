@@ -2,7 +2,7 @@
 
 tinyPIP-0 is a small, self-contained character-level transformer language model written in PyTorch. It is a standalone project. It is not related to any other model repository and shares no code or configs with one.
 
-It is designed to run on modest hardware, including a Chromebook or a free Colab runtime. The whole project is four Python files and one HTML file.
+It is designed to run on modest hardware, including a Chromebook or a free Colab runtime. The whole project is three Python files and one HTML file.
 
 ## Files
 
@@ -26,7 +26,7 @@ It is designed to run on modest hardware, including a Chromebook or a free Colab
 | Output head | tied to token embedding |
 | Total parameters | 111,296 |
 
-Note on sizing: a dim of 128 with 4 to 6 layers gives roughly 0.5M to 1M parameters with this block design, which is well above 100k. To stay near 100k, the default uses dim 64 with 2 layers. Change Config in model.py to scale up. The parameter count above is a hand calculation. Confirm it with python model.py.
+Note on sizing: the default config is dim 64 with 2 layers, which gives about 111k parameters. Scaling up is much steeper than it looks. At dim 128, each layer has about 197k parameters, so 4 layers come to about 0.8M and 6 layers to about 1.2M. Change Config in model.py to scale. The 111,296 figure is a hand calculation. Confirm it with python model.py.
 
 ## Train
 
