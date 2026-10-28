@@ -7,7 +7,7 @@ It is designed to run on modest hardware, including a Chromebook or a free Colab
 ## Files
 
 - model.py: the transformer (config, attention, MLP, blocks, generation). Running it prints the parameter count.
-- train.py: trains on TinyShakespeare at the character level and writes out/tinypip0.pt.
+- train.py: trains on TinyShakespeare at the character level and writes out/tinypip0.pt. Resumes automatically from an existing checkpoint.
 - generate.py: loads a checkpoint and generates text.
 - index.html: a zero-build browser visualizer with a parameter calculator and architecture view. Styled in amber #ffb000 on #0d0d0d with JetBrains Mono.
 
@@ -45,7 +45,33 @@ Colab (one cell):
 !python train.py
 ```
 
-Training takes a few minutes on CPU and is faster on a GPU. It prints train and validation loss every 500 steps and saves out/tinypip0.pt.
+Training takes a few minutes on CPU and is faster on a GPU. It prints train and validation loss every 500 steps and saves out/tinypip0.pt. The checkpoint stores the weights, config, vocabulary, optimizer state, and the step reached.
+
+### Resume training
+
+If out/tinypip0.pt already exists, train.py loads it and continues from the saved step instead of starting over. Running the same command again is enough:
+
+```
+python train.py
+```
+
+To resume from a different checkpoint, pass its path:
+
+```
+python train.py --resume path/to/checkpoint.pt
+```
+
+To require a resume and fail if the file is missing, use --resume with no path (it uses --ckpt, which defaults to out/tinypip0.pt).
+
+To ignore any existing checkpoint and train from random initialization, use:
+
+```
+python train.py --scratch
+```
+
+--steps sets the total step to train up to, counting from the checkpoint's step, so raising it extends a finished run. For example, `python train.py --steps 6000` continues a 3000-step checkpoint to 6000. Other options: --lr, --batch-size, --eval-every, --eval-iters, --seed, and --ckpt (the path to save to and auto-resume from). Run `python train.py --help` for the full list.
+
+Checkpoints from before resume support have no optimizer state or step count. They still load, but the optimizer starts fresh and training begins at step 0.
 
 ## Generate
 
