@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>talk with tinyPIP-0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root { --amber: #ffb000; --bg: #0d0d0d; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; padding: 20px; background: var(--bg); color: var(--amber);
+    font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 15px; line-height: 1.5;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  h1 { font-size: 22px; margin: 0; }
+  .dim { opacity: 0.6; }
+  #status { opacity: 0.8; min-height: 1.5em; }
+  #log {
+    flex: 1; min-height: 240px; overflow-y: auto;
+    border: 1px solid var(--amber); padding: 12px;
+  }
+  #log div { margin: 0 0 10px; white-space: pre-wrap; word-wrap: break-word; }
+  .you { opacity: 0.7; }
+  .sys { opacity: 0.6; font-style: italic; }
+  .pip { font-weight: 700; }
+  form { display: flex; gap: 8px; }
+  #input {
+    flex: 1; background: var(--bg); color: var(--amber);
+    border: 1px solid var(--amber); padding: 8px; font: inherit;
+  }
+  button {
+    background: var(--amber); color: var(--bg); border: 1px solid var(--amber);
+    padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer;
+  }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .controls { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .controls label { display: flex; gap: 6px; align-items: center; }
+  .controls input {
+    width: 80px; background: var(--bg); color: var(--amber);
+    border: 1px solid var(--amber); padding: 4px; font: inherit;
+  }
+  a { color: var(--amber); }
+</style>
+</head>
+<body>
+
+<h1>talk with tinyPIP-0</h1>
+<p class="dim" style="margin:0">A tiny character-level transformer, about 111k parameters, running in your browser. Replies are short and rough. That is expected.</p>
+
+<div id="status">loading model...</div>
+
+<div id="log"></div>
+
+<form id="form" autocomplete="off">
+  <input id="input" type="text" placeholder="say something to Pip (/reset clears the chat)" maxlength="400">
+  <button id="send" type="submit" disabled>send</button>
+</form>
+
+<div class="controls">
+  <label>temperature <input id="temp" type="number" value="0.8" min="0.1" max="2" step="0.1"></label>
+  <label>top-k <input id="topk" type="number" value="40" min="0" max="65" step="1"></label>
+  <span class="dim">top-k 0 turns the filter off</span>
+</div>
+
+<p class="dim" style="margin:0"><a href="https://github.com/coffee-hour/tinyPIP-0">source on GitHub</a></p>
+
+<script src="app.js"></script>
+</body>
+</html>
