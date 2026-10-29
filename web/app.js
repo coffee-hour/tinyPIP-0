@@ -5,21 +5,25 @@
 
 (function () {
   var EPS = 1e-5;
+  var TEMPERATURE = 0.8;
+  var TOP_K = 40;
+  var MAX_TOKENS = 300;
 
   var logEl = document.getElementById("log");
   var form = document.getElementById("form");
   var input = document.getElementById("input");
   var sendBtn = document.getElementById("send");
   var statusEl = document.getElementById("status");
-  var tempEl = document.getElementById("temp");
-  var topkEl = document.getElementById("topk");
+  var emptyEl = document.getElementById("empty");
 
   var model = null;
   var history = "";
+  var busy = false;
 
-  function addLine(cls, text) {
+  function addMsg(cls, text) {
+    if (emptyEl) { emptyEl.remove(); emptyEl = null; }
     var d = document.createElement("div");
-    d.className = cls;
+    d.className = "msg " + cls;
     d.textContent = text;
     logEl.appendChild(d);
     logEl.scrollTop = logEl.scrollHeight;
@@ -185,14 +189,14 @@
   }
 
   // Generates one reply. Stops at a newline, like generate.py's chat mode.
-  function generate(promptText, maxTokens, temperature, topK) {
+  function generate(promptText) {
     var block = model.config.block_size;
     var ids = Array.from(promptText).map(function (ch) { return model.stoi.get(ch); });
     var out = [];
-    for (var step = 0; step < maxTokens; step++) {
+    for (var step = 0; step < MAX_TOKENS; step++) {
       var window = ids.slice(-block);
       var logits = forward(window);
-      var next = sample(logits, temperature, topK);
+      var next = sample(logits, TEMPERATURE, TOP_K);
       ids.push(next);
       var ch = model.itos.get(next);
       if (ch === "\n") break;
@@ -201,17 +205,26 @@
     return out.join("").replace(/^ +/, "").split("\n")[0].trim();
   }
 
-  async function load() {
-    var manifestRes = await fetch("model/manifest.json");
-    if (!manifestRes.ok) {
-      throw new Error("model/manifest.json not found (HTTP " + manifestRes.status + "). Run a training workflow first.");
+  async function fetchOk(url, what) {
+    var res;
+    try {
+      res = await fetch(url, { cache: "no-cache" });
+    } catch (e) {
+      throw new Error("could not reach " + what + " (" + e.message + ")");
     }
-    var manifest = await manifestRes.json();
-    var weightsRes = await fetch("model/weights.bin");
-    if (!weightsRes.ok) throw new Error("model/weights.bin not found (HTTP " + weightsRes.status + ")");
-    var weights = new Float32Array(await weightsRes.arrayBuffer());
+    if (!res.ok) throw new Error(what + " returned HTTP " + res.status);
+    return res;
+  }
+
+  async function load() {
+    setStatus("loading model...");
+    console.info("[tinyPIP-0] fetching model/manifest.json");
+    var manifest = await (await fetchOk("model/manifest.json", "model/manifest.json")).json();
+    console.info("[tinyPIP-0] fetching model/weights.bin");
+    var buf = await (await fetchOk("model/weights.bin", "model/weights.bin")).arrayBuffer();
+    var weights = new Float32Array(buf);
     if (weights.length !== manifest.total_floats) {
-      throw new Error("weights.bin has " + weights.length + " floats but manifest expects " + manifest.total_floats);
+      throw new Error("weights.bin has " + weights.length + " floats, manifest expects " + manifest.total_floats);
     }
     var itos = new Map();
     var stoi = new Map();
@@ -222,55 +235,71 @@
     });
     model = { config: manifest.config, tensors: manifest.tensors, weights: weights, itos: itos, stoi: stoi };
     sendBtn.disabled = false;
-    setStatus("ready. " + weights.length.toLocaleString("en-US") + " parameters loaded (training step " + manifest.step + "). Say something.");
+    setStatus("ready · step " + manifest.step);
+    console.info("[tinyPIP-0] model ready: " + weights.length + " parameters, training step " + manifest.step);
+  }
+
+  // Keep only characters the model knows. Report what was dropped.
+  function cleanText(text) {
+    var dropped = [];
+    var kept = Array.from(text).filter(function (ch) {
+      if (model.stoi.has(ch)) return true;
+      if (dropped.indexOf(ch) < 0) dropped.push(ch);
+      return false;
+    }).join("");
+    return { text: kept.replace(/\s+/g, " ").trim(), dropped: dropped };
   }
 
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
-    var text = input.value.trim();
+    if (busy) return;
+    var raw = input.value.trim();
+    if (!raw) return;
     input.value = "";
-    if (!text) return;
-    if (text === "/reset") {
+
+    if (raw === "/reset") {
       history = "";
-      addLine("sys", "(history cleared)");
+      addMsg("sys", "chat cleared");
       return;
     }
     if (!model) {
-      addLine("sys", "model is not loaded yet");
+      addMsg("sys", "model is not loaded, so Pip cannot reply. See the status line above.");
       return;
     }
 
-    var turn = "User: " + text + "\nPip:";
-    var unknown = [];
-    Array.from(turn).forEach(function (ch) {
-      if (!model.stoi.has(ch) && unknown.indexOf(ch) < 0) unknown.push(ch);
-    });
-    if (unknown.length) {
-      addLine("sys", "(skipped: message has characters not in vocabulary: " + JSON.stringify(unknown) + ")");
+    var c = cleanText(raw);
+    if (!c.text) {
+      addMsg("sys", "none of those characters are in Pip's vocabulary. Try plain letters, digits, and basic punctuation.");
       return;
     }
+    if (c.dropped.length) {
+      addMsg("sys", "dropped unsupported characters: " + c.dropped.map(function (ch) { return JSON.stringify(ch); }).join(" "));
+    }
 
-    addLine("you", "You: " + text);
+    addMsg("you", c.text);
+    busy = true;
     sendBtn.disabled = true;
     setStatus("thinking...");
     await new Promise(function (r) { setTimeout(r, 20); });
     try {
-      history += turn;
-      var temperature = Number(tempEl.value) || 0.8;
-      var topK = Number(topkEl.value) || 0;
-      var reply = generate(history, 300, temperature, topK);
+      history += "User: " + c.text + "\nPip:";
+      var reply = generate(history);
       history += " " + reply + "\n";
-      addLine("pip", "Pip: " + (reply || "(no reply)"));
+      addMsg("pip", reply || "...");
     } catch (err) {
-      addLine("sys", "error: " + err.message);
+      console.error("[tinyPIP-0] generation failed", err);
+      addMsg("sys", "error: " + err.message);
     } finally {
+      busy = false;
       sendBtn.disabled = false;
-      setStatus("ready");
+      setStatus("ready · step " + model.config && "ready");
       input.focus();
     }
   });
 
   load().catch(function (err) {
-    setStatus("could not load the model: " + err.message);
+    console.error("[tinyPIP-0] model failed to load:", err);
+    setStatus("model failed to load");
+    addMsg("sys", "could not load the model: " + err.message + ". Check that web/model/manifest.json and web/model/weights.bin are deployed. Details are in the browser console.");
   });
 })();
