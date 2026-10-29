@@ -1,0 +1,106 @@
+User: how do I see which directory I'm in and what's in it?
+Pip: Run pwd to print the working directory, then ls -la to list everything, including hidden files, with permissions and sizes.
+User: How do I go up one level and then back to where I was?
+Pip: cd .. goes up one level. cd - jumps back to the previous directory. cd ~ takes you to your home directory.
+User: What does ls -lh do differently?
+Pip: The h flag prints sizes in human units like K, M, and G instead of raw bytes. It is much easier to scan when you have big files.
+User: My script says permission denied when I run it.
+Pip: Check with ls -l. If the x bit is missing on your user, add it with chmod u+x script.sh, then run it as ./script.sh.
+User: What does chmod 755 mean?
+Pip: Three digits for owner, group, and others. Each digit adds read as 4, write as 2, and execute as 1. So 7 is rwx for the owner and 5 is r-x for group and others.
+User: How do I find a file I lost somewhere on disk?
+Pip: Use find with a starting path and a name pattern, for example find ~ -name "config.yaml" 2>/dev/null. The redirect hides permission errors from directories you cannot read.
+User: grep is slow on my big log directory.
+Pip: Narrow the search first. Use grep -r --include="*.log" on the pattern you need, or use ripgrep if you have it, since it skips ignored files and is much faster.
+User: What does the pipe character do?
+Pip: It sends the output of one command into the input of the next. For example, ps aux | grep python lists processes and then filters them for python.
+User: How do I stop a process that is hanging?
+Pip: Press Ctrl+C to interrupt it in the foreground. If it is in the background or ignores that, find its PID with pgrep -f name or ps aux, then run kill PID. Use kill -9 only as a last resort.
+User: What is the difference between > and >>?
+Pip: The single arrow overwrites the target file. The double arrow appends to it. Use >> for logs so you keep the old lines.
+User: How do I see the last lines of a log that keeps growing?
+Pip: Use tail -f logfile. It prints new lines as they are written. Press Ctrl+C to stop following.
+User: What does 2>&1 mean?
+Pip: It sends standard error to the same place as standard output. Without it, error messages can skip your log file and appear only on the terminal.
+User: Is there a quick way to see disk usage?
+Pip: df -h shows free space per filesystem. du -sh * inside a directory shows how big each item is, which helps you find what is filling the disk.
+User: My disk is full but I cannot find the big file.
+Pip: Check for deleted files still held open by a process with lsof +L1. A process can keep a deleted file's space in use until it exits or is restarted.
+User: What does the PATH variable do?
+Pip: It is a list of directories the shell searches, in order, when you type a command name. If a command is not found, the directory it lives in is probably missing from PATH.
+User: How do I make an alias that persists?
+Pip: Add alias ll="ls -la" to your shell profile, such as ~/.bashrc or ~/.zshrc, then run source on that file or open a new terminal.
+User: Why does my shell variable disappear in a new script?
+Pip: Plain shell variables are local to the shell. Use export VAR=value so child processes see it, or pass it on the command line for a single run.
+User: How do I run a command every few seconds to watch something?
+Pip: Use watch -n 2 command on Linux. On macOS, install watch with Homebrew, or loop in bash with while true; do command; sleep 2; done.
+User: What does set -euo pipefail do in a bash script?
+Pip: It makes the script stop on the first failed command, treat unset variables as errors, and fail a pipeline if any part fails. It catches a lot of silent bugs early.
+User: Is it safe to run rm -rf with a wildcard?
+Pip: Be careful. Run ls with the same pattern first so you can see exactly what matches. Quote variables in paths, and never run it with an empty variable, since that can expand to the root directory.
+User: How do I undo a git commit I just made but did not push?
+Pip: Use git reset --soft HEAD~1 to keep your changes staged, or git reset HEAD~1 to keep them unstaged. Your files stay the same either way.
+User: I committed the wrong file. How do I remove it from the commit?
+Pip: Run git reset --soft HEAD~1, unstage the file with git restore --staged path, then commit again. If the commit was already pushed, do not rewrite history on a shared branch.
+User: What does git status tell me?
+Pip: It shows which files are modified, which are staged for the next commit, and which are untracked. Run it before every commit so you know exactly what you are about to save.
+User: How do I see what changed before I commit?
+Pip: git diff shows unstaged changes. git diff --staged shows what is ready to commit. Read both before you commit to catch debug prints or stray edits.
+User: What is a branch, really?
+Pip: A branch is just a movable pointer to a commit. Creating one is cheap. New commits move the branch pointer forward, and the other branches stay where they were.
+User: How do I switch to a new branch and bring my uncommitted changes with me?
+Pip: Run git switch -c new-branch. Your uncommitted changes come along because you are only moving the pointer, not discarding the working tree.
+User: I have a merge conflict. What do the markers mean?
+Pip: Between the less-than markers and the equals sign is your version. Between the equals sign and the greater-than marker is the incoming version. Edit the file to keep what is correct, remove all markers, then git add the file and commit.
+User: What is rebase and when should I use it?
+Pip: Rebase replays your commits on top of another branch, which keeps history linear. Use it on your own feature branch before merging. Avoid rebasing branches other people have already built on.
+User: What does git stash do?
+Pip: It saves your uncommitted changes to a stack and gives you a clean working tree. git stash pop brings them back. It is useful when you need to switch branches quickly.
+User: My git push was rejected. Why?
+Pip: The remote has commits you do not have locally. Run git pull --rebase to put your commits on top of theirs, check the result, then push again.
+User: Can I see a short history of commits?
+Pip: git log --oneline --graph --all gives a compact view of every branch. Add -n 10 to limit it to the last ten commits.
+User: How do I find which commit introduced a bug?
+Pip: Use git bisect. Mark a known bad commit and a known good one, then git bisect will check out midpoints for you to test until it finds the first bad commit.
+User: What should go into .gitignore?
+Pip: Build output, virtual environments, dependency folders, editor settings, log files, and anything with secrets. Commit the ignore file itself so everyone shares the rules.
+User: I accidentally committed a secret key. What now?
+Pip: Rotate the key first, since it is compromised the moment it was pushed. Then remove it from history with a tool like git filter-repo, and force push only after the team agrees.
+User: What is the difference between git fetch and git pull?
+Pip: Fetch downloads new commits but does not change your working files. Pull does a fetch and then merges or rebases into your current branch. Fetch first when you want to look before you change anything.
+User: How do I see who last changed a line?
+Pip: Run git blame on the file. It shows the commit and author for each line, which helps you find the reason behind a strange piece of code.
+User: How do I tag a release?
+Pip: Create an annotated tag with git tag -a v1.2.0 -m "release notes" and push it with git push origin v1.2.0. Annotated tags store a message and the tagger, which makes them easier to trust.
+User: My terminal colors look wrong over SSH. Why?
+Pip: The remote machine may not know your terminal type. Check the TERM variable on the remote host and set it to a value it supports, such as xterm-256color.
+User: What does ssh-keygen do?
+Pip: It creates a pair of keys. Keep the private key on your machine and copy the public key to the server's authorized_keys file. Then you can log in without a password.
+User: Should I use a password or a key for SSH?
+Pip: Use a key. It is harder to guess and easier to rotate. Protect the private key with a passphrase and load it into an agent so you only type the passphrase once per session.
+User: How do I run a long job so it keeps going after I disconnect?
+Pip: Use tmux or screen. Start a session, run the job inside it, detach with Ctrl+B then D, and reattach later with tmux attach.
+User: What does the chmod +x command do exactly?
+Pip: It adds the execute bit so the system will run the file as a program. Without it, a script with a correct shebang still will not run directly.
+User: What is a shebang?
+Pip: It is the first line of a script, starting with the number sign and an exclamation mark, followed by the interpreter path. For example, #!/usr/bin/env bash tells the system to run the file with bash.
+User: How do I check my Linux version?
+Pip: Run uname -a for the kernel and cat /etc/os-release for the distribution name and version.
+User: What is systemd?
+Pip: It is the init system on most modern Linux distributions. It starts services at boot and manages them. Use systemctl status name to check a service and journalctl -u name to read its logs.
+User: My service keeps restarting. How do I see why?
+Pip: Run journalctl -u servicename -n 100 --no-pager. Look for the last error before each restart, which usually shows the exit code or the missing file.
+User: How do I make a script run every night?
+Pip: Use cron with a line like 0 2 * * * /full/path/to/script.sh. Use absolute paths, and redirect output to a log file so you can see failures.
+User: Why does my cron job have a different PATH?
+Pip: Cron uses a minimal environment. Set PATH at the top of the crontab, or use full paths to every command in your script.
+User: How do I compress a folder into one file?
+Pip: Use tar -czf archive.tar.gz folder/ to create it and tar -xzf archive.tar.gz to extract it. The c, x, z, and f flags mean create, extract, gzip, and file.
+User: Is there a way to copy files over SSH?
+Pip: Use scp for a simple copy, or rsync -av for a copy you can repeat. rsync only sends changed files, which saves time on large folders.
+User: What does the sudo command actually do?
+Pip: It runs one command with root privileges after checking your password. Use it for a single admin task rather than working as root for everything.
+User: My command says command not found after installing something. Why?
+Pip: The install location may not be on your PATH. Check which the tool installed to, then add that folder to PATH in your shell profile.
+User: How do I see environment variables?
+Pip: Run env to list them all, or echo $HOME to print one. Use printenv NAME to check a single variable from a script.
