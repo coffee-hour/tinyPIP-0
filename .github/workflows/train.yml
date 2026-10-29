@@ -115,6 +115,6 @@ jobs:
             echo "No changes to commit."
             exit 0
           fi
-          git commit -m "chore(weights): update trained checkpoint to step $STEPS [skip ci]"
+          git commit -m "chore(weights): update trained checkpoint to step $STEPS"
           git pull --rebase origin main
           git push origin HEAD:main
