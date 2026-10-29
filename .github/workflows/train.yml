@@ -18,9 +18,15 @@ on:
         required: false
         default: "15"
         type: string
+      resume_from_latest:
+        description: "Download the latest successful run's checkpoint into out/ before training"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   train:
@@ -28,10 +34,10 @@ jobs:
     timeout-minutes: 300
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -40,7 +46,6 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # CPU-only torch keeps the install small on the runner; requirements.txt is still installed below
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r requirements.txt
 
@@ -51,6 +56,27 @@ jobs:
         run: |
           case "$STEPS" in ''|*[!0-9]*) echo "steps must be a non-negative integer"; exit 1 ;; esac
           case "$MAX_MB" in ''|*[!0-9]*) echo "max_mb must be a positive integer"; exit 1 ;; esac
+
+      - name: Fetch latest checkpoint from previous successful run
+        if: ${{ inputs.resume_from_latest }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CURRENT_RUN: ${{ github.run_id }}
+        run: |
+          RUN_ID=$(gh run list --workflow train.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "$CURRENT_RUN" ]; then
+            echo "No previous successful run found. Training from scratch."
+            exit 0
+          fi
+          echo "Downloading tinypip0-checkpoint from run $RUN_ID"
+          mkdir -p out
+          if gh run download "$RUN_ID" -n tinypip0-checkpoint -D out && [ -f out/tinypip0.pt ]; then
+            echo "Restored out/tinypip0.pt. Training will resume from it."
+          else
+            echo "::warning::Could not restore checkpoint from run $RUN_ID. Training from scratch."
+            rm -f out/tinypip0.pt
+          fi
 
       - name: Train
         env:
@@ -66,9 +92,9 @@ jobs:
 
       - name: Upload checkpoint artifact
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: tinypip0-checkpoint-run-${{ github.run_number }}
+          name: tinypip0-checkpoint
           path: out/tinypip0.pt
           if-no-files-found: error
           retention-days: 14
