@@ -8,9 +8,9 @@ Resume:   python train.py                          (auto-resumes if out/tinypip0
 Scratch:  python train.py --scratch                (ignore any existing checkpoint)
 Output:   out/tinypip0.pt (weights, config, vocabulary, optimizer state, step)
 
-If data_phase2.txt exists next to this file, it is appended to input.txt in memory
-(input.txt is only read, never written). Delete or rename data_phase2.txt to train
-on input.txt alone.
+If data/curated_dialogue.txt exists, it is appended to input.txt in memory. Then
+data_phase2.txt is appended too if it exists. input.txt is only read, never written.
+Delete or rename the extra files to train on input.txt alone.
 
 Vocabulary growth: when resuming, characters already in the checkpoint keep their
 ids. Any new characters in the training text are appended with new ids. The token
@@ -31,6 +31,7 @@ from model import Config, TinyPIP, count_params
 DATA_URL = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
 DATA_PATH = "input.txt"
 PHASE2_PATH = "data_phase2.txt"
+CURATED_PATH = os.path.join("data", "curated_dialogue.txt")
 OUT_DIR = "out"
 DEFAULT_CKPT = os.path.join(OUT_DIR, "tinypip0.pt")
 
@@ -85,19 +86,20 @@ def pick_device():
 
 
 def load_text():
-    """Return input.txt, with data_phase2.txt appended when that file exists."""
+    """Return input.txt, with curated and phase-2 extra data appended when those files exist."""
     if not os.path.exists(DATA_PATH):
         print("Downloading TinyShakespeare...")
         urllib.request.urlretrieve(DATA_URL, DATA_PATH)
     with open(DATA_PATH, "r", encoding="utf-8") as f:
         text = f.read()
-    if os.path.exists(PHASE2_PATH):
-        with open(PHASE2_PATH, "r", encoding="utf-8") as f:
-            extra = f.read()
-        if text and not text.endswith("\n"):
-            text += "\n"
-        text += extra
-        print(f"loaded {PHASE2_PATH} ({len(extra):,} chars) after {DATA_PATH}")
+    for extra_path in (CURATED_PATH, PHASE2_PATH):
+        if os.path.exists(extra_path):
+            with open(extra_path, "r", encoding="utf-8") as f:
+                extra = f.read()
+            if text and not text.endswith("\n"):
+                text += "\n"
+            text += extra
+            print(f"loaded {extra_path} ({len(extra):,} chars)")
     return text
 
 
