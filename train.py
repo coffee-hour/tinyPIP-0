@@ -8,9 +8,11 @@ Resume:   python train.py                          (auto-resumes if out/tinypip0
 Scratch:  python train.py --scratch                (ignore any existing checkpoint)
 Output:   out/tinypip0.pt (weights, config, vocabulary, optimizer state, step)
 
-If data/curated_dialogue.txt exists, it is appended to input.txt in memory. Then
-data_phase2.txt is appended too if it exists. input.txt is only read, never written.
-Delete or rename the extra files to train on input.txt alone.
+In-memory training text is built in this order:
+  1. input.txt (the base file, only read, never written)
+  2. every data/curated_*.txt file, in sorted filename order
+  3. data_phase2.txt, if it exists (optional SmolTalk data from fetch_data.py)
+Missing files are skipped. Delete or rename the extra files to train on input.txt alone.
 
 Vocabulary growth: when resuming, characters already in the checkpoint keep their
 ids. Any new characters in the training text are appended with new ids. The token
@@ -20,6 +22,7 @@ new rows start at zero. Resuming therefore never requires --scratch because of
 vocabulary changes. The vocabulary never shrinks.
 """
 import argparse
+import glob
 import os
 import urllib.request
 from dataclasses import asdict, replace
@@ -30,8 +33,8 @@ from model import Config, TinyPIP, count_params
 
 DATA_URL = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
 DATA_PATH = "input.txt"
+CURATED_GLOB = os.path.join("data", "curated_*.txt")
 PHASE2_PATH = "data_phase2.txt"
-CURATED_PATH = os.path.join("data", "curated_dialogue.txt")
 OUT_DIR = "out"
 DEFAULT_CKPT = os.path.join(OUT_DIR, "tinypip0.pt")
 
@@ -85,21 +88,29 @@ def pick_device():
     return "cpu"
 
 
+def extra_data_paths():
+    """Curated files in sorted order, then the optional phase-2 file."""
+    paths = sorted(glob.glob(CURATED_GLOB))
+    if os.path.exists(PHASE2_PATH):
+        paths.append(PHASE2_PATH)
+    return paths
+
+
 def load_text():
-    """Return input.txt, with curated and phase-2 extra data appended when those files exist."""
+    """Return input.txt with the curated and optional extra files appended."""
     if not os.path.exists(DATA_PATH):
         print("Downloading TinyShakespeare...")
         urllib.request.urlretrieve(DATA_URL, DATA_PATH)
     with open(DATA_PATH, "r", encoding="utf-8") as f:
         text = f.read()
-    for extra_path in (CURATED_PATH, PHASE2_PATH):
-        if os.path.exists(extra_path):
-            with open(extra_path, "r", encoding="utf-8") as f:
-                extra = f.read()
-            if text and not text.endswith("\n"):
-                text += "\n"
-            text += extra
-            print(f"loaded {extra_path} ({len(extra):,} chars)")
+    for extra_path in extra_data_paths():
+        with open(extra_path, "r", encoding="utf-8") as f:
+            extra = f.read()
+        if text and not text.endswith("\n"):
+            text += "\n"
+        text += extra
+        print(f"loaded {extra_path} ({len(extra):,} chars)")
+    print(f"total training text: {len(text):,} chars")
     return text
 
 
