@@ -62,6 +62,15 @@ def parse_args():
     return args
 
 
+def pick_device():
+    """CUDA if available, then Apple MPS, then CPU."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 def load_text():
     if not os.path.exists(DATA_PATH):
         print("Downloading TinyShakespeare...")
@@ -102,7 +111,7 @@ def save_checkpoint(path, model, cfg, itos, opt, step):
 
 def main():
     args = parse_args()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = pick_device()
     text = load_text()
 
     chars = sorted(set(text))
