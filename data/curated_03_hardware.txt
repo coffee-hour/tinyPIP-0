@@ -1,0 +1,66 @@
+User: My PC won't turn on at all. Where do I start?
+Pip: Check the power first. Make sure the outlet works, the power supply switch is on, and the cable is fully seated at both ends. Then check the front panel power button connector on the motherboard.
+User: The fans spin but nothing shows on the monitor.
+Pip: Check that the monitor is on the right input and that the cable goes to the GPU, not the motherboard, if you have a dedicated card. Then reseat the GPU and try again.
+User: I hear beeps when I power on. What do they mean?
+Pip: Beep codes depend on the motherboard maker. Look up the pattern for your board in the manual. A long beep or a series of short beeps usually means memory or the graphics card is not detected.
+User: How do I test RAM?
+Pip: Reseat each stick, then boot with one stick at a time in the slot the manual recommends. Run a memory test like MemTest86 from a USB drive for several passes to find errors.
+User: Do my RAM sticks need to match?
+Pip: Matching kits are safest. Use the same capacity, speed, and timings, and install them in the paired slots shown in the manual. Mixed sticks can still work but may run at a lower common speed.
+User: My RAM is not showing the full amount.
+Pip: Check whether the board has a memory limit, and whether the BIOS sees all the sticks. Reseat them, update the BIOS, and confirm the sticks are in the correct slots for dual channel.
+User: What is XMP or EXPO?
+Pip: It is a profile stored on the RAM that sets the rated speed and timings. Enable it in the BIOS so the memory runs at its advertised speed instead of a safe default.
+User: My system is unstable after enabling XMP.
+Pip: Try a slightly lower speed or looser timings, or raise the memory voltage a little within the spec. Run a stress test after each change. If it still fails, go back to the default profile.
+User: Do I need to replace thermal paste?
+Pip: Replace it when you remount the cooler, when CPU temperatures climb under load, or every few years. Clean the old paste with isopropyl alcohol first, then apply a pea-sized dot in the center.
+User: How much thermal paste should I use?
+Pip: A small pea-sized dot in the middle is enough for most coolers. The pressure of the mount spreads it. Too much can squeeze onto the socket and cause problems.
+User: My CPU runs at ninety degrees under load. Is that bad?
+Pip: It depends on the model. Check the rated maximum temperature. If you are close to it, check the cooler is mounted firmly, the paste is fresh, the fans run, and the case has airflow.
+User: Which fan direction should my case fans use?
+Pip: Intake fans at the front and bottom should blow air in. Exhaust fans at the rear and top should blow air out. That creates a steady flow through the case.
+User: My GPU is not getting enough power. What should I check?
+Pip: Use separate PCIe power cables from the power supply for each connector rather than daisy chained cables from one port. Check that every connector is fully seated and that the power supply is rated for the card.
+User: What does a PCIe power connector do on a GPU?
+Pip: It delivers extra current the motherboard slot cannot supply safely. Modern high-end cards can draw hundreds of watts, so they need dedicated connectors from the power supply.
+User: Can my power supply be too small?
+Pip: Yes. Add the rated draw of your CPU and GPU, then leave headroom of roughly twenty to thirty percent. Shutdowns under load often point to an underpowered supply.
+User: What does the BIOS do?
+Pip: It initializes the hardware before the operating system loads, and it stores the settings for boot order, memory, and power. Update it from the manufacturer when fixes or CPU support are released.
+User: How do I update the BIOS safely?
+Pip: Download the exact file for your board from the manufacturer, put it on a FAT32 USB drive, and use the built-in flash tool. Keep the power stable and do not interrupt the flash.
+User: My computer boots but the BIOS settings reset every time.
+Pip: The CMOS battery is probably low. Replace the coin cell, usually a CR2032, and then reset the BIOS settings to defaults and reconfigure what you need.
+User: What does POST mean?
+Pip: Power-on self test. The firmware checks the CPU, memory, and key devices before handing off to the boot loader. If POST fails, the board usually signals with a code, a beep pattern, or a diagnostic LED.
+User: My motherboard has a debug LED. How do I read it?
+Pip: Check the manual for the code table. Each LED pattern or number maps to a stage, and the last code before the failure points to the component to check next.
+User: Should I clear the CMOS?
+Pip: It is a good reset when the system will not boot after a bad overclock or a hardware change. Use the jumper or the button in the manual, or remove the battery briefly with the power off and unplugged.
+User: My SSD is slow. How do I check it?
+Pip: Check that the drive is on a fast interface, such as NVMe in an M.2 slot, and that the firmware is current. Use the manufacturer tool to read the health status and check for a near-full drive, which slows writes.
+User: What does SMART data tell me?
+Pip: It is the drive's own health report, with fields like reallocated sectors, power-on hours, and wear level. Rising reallocated sectors or a growing error count are early warnings to back up and replace the drive.
+User: My computer crashes with a blue screen. Where do I look?
+Pip: Note the stop code, then check the minidump files or the event log for the driver named in the crash. Recent driver or BIOS changes are the most common cause.
+User: How do I test the GPU for stability?
+Pip: Use a stress test for the card, watch the temperature and clock speed, and check for artifacts or driver resets. If it fails at stock settings, the card or its power is the likely problem.
+User: Should I undervolt my GPU?
+Pip: It can lower heat and power with little performance loss, but do it in small steps and test each one. If the system crashes, back off the offset.
+User: My PC shuts down while gaming but not at idle.
+Pip: That points to heat or power under load. Check temperatures during play, clean dust from the filters and heatsinks, and check the power supply rating against the GPU load.
+User: How often should I clean dust out of a PC?
+Pip: Every few months in a dusty room, less often in a clean one. Use compressed air in short bursts with the fans held still so they do not overspin.
+User: What is the best order to build a PC?
+Pip: Install the CPU and cooler on the board while it is outside the case, then the RAM, then the M.2 drive. Mount the board, connect power and the front panel, then install the GPU and do a first boot before closing the case.
+User: Why should I test before closing the case?
+Pip: You can reseat parts easily while the case is open. Once it is closed, finding a dead RAM slot or a missing front panel connection takes much longer.
+User: My monitor shows no signal but the PC runs. What is wrong?
+Pip: Try a different cable and port, and make sure the monitor is on the right input. If you have both an integrated and a dedicated GPU, plug into the dedicated card.
+User: How do I know if the power supply is failing?
+Pip: Look for random shutdowns, a fan that stops, a burning smell, or voltage sag under load. A tester or a monitoring tool can show the rail voltages.
+User: Is it safe to work on a PC while it is plugged in?
+Pip: No. Shut it down, switch off the power supply, and unplug it. Touch bare metal on the case before you handle parts to discharge static, and avoid working on a carpet.
