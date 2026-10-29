@@ -1,0 +1,88 @@
+User: What is a tensor in plain terms?
+Pip: A tensor is an n-dimensional array of numbers. A scalar is zero dimensions, a vector is one, a matrix is two, and PyTorch extends that to any number of dimensions.
+User: How do I make a tensor?
+Pip: Call torch.tensor on a list, for example x = torch.tensor([1.0, 2.0, 3.0]). Use torch.zeros, torch.ones, or torch.randn for common shapes.
+User: What does the shape of a tensor mean?
+Pip: It is the size along each dimension. A tensor of shape (32, 128) has 32 rows and 128 columns. Check it with x.shape while you debug.
+User: Why do I get a shape mismatch error in a matrix multiply?
+Pip: For a matrix multiply, the inner dimensions must match. A of shape (m, k) times B of shape (k, n) gives a result of shape (m, n). Print both shapes before the multiply.
+User: What does view do?
+Pip: It reshapes a tensor without copying the data, as long as the memory is contiguous. Use reshape if you are not sure the tensor is contiguous.
+User: What is contiguous memory and why does it matter?
+Pip: It means the elements sit next to each other in memory in the order the shape expects. Operations like view can fail after a transpose, so call contiguous before you view.
+User: What does transpose do in a model?
+Pip: It swaps two dimensions. In attention you often swap the sequence and head dimensions so each head sees its own slice of the sequence.
+User: What is a gradient?
+Pip: It is the derivative of the loss with respect to a parameter. It tells you which direction to move that parameter to reduce the loss.
+User: How does PyTorch know the gradients?
+Pip: Autograd records each operation when requires_grad is true. Calling loss.backward() walks that graph backward and stores a gradient in each parameter's grad field.
+User: Why do I need to call zero_grad?
+Pip: Gradients accumulate across backward calls by default. Without clearing them, each step adds to the last one and the updates are wrong.
+User: What does optimizer.step do?
+Pip: It uses the stored gradients to update the parameters. AdamW keeps running averages of the gradients and squared gradients, so each parameter gets its own effective step size.
+User: What is weight decay?
+Pip: It shrinks the weights a little on each step, which discourages large weights and helps reduce overfitting. AdamW applies it directly rather than mixing it into the gradient.
+User: My loss is nan. What do I check first?
+Pip: Lower the learning rate, then check for a log of zero, a divide by zero, or an exp of a large value. Clipping gradients with clip_grad_norm_ often stops explosions.
+User: What does gradient clipping do?
+Pip: It rescales all gradients together if their overall norm is above a limit. This keeps one bad batch from blowing up the parameters.
+User: What is a learning rate?
+Pip: It is the size of each step the optimizer takes. Too high and the loss bounces or diverges. Too low and training crawls. A common start for small transformers is around three times ten to the minus three with AdamW.
+User: Why is my training loss going down but validation loss going up?
+Pip: The model is starting to memorize the training data. Stop earlier, add regularization, or get more varied data. A bigger dataset is usually the strongest fix.
+User: What is the difference between train and eval mode?
+Pip: Eval mode turns off dropout and makes batch norm use its running statistics. Call model.eval() for evaluation and model.train() before training again.
+User: Why do I wrap evaluation in no_grad?
+Pip: It stops PyTorch from building the autograd graph. That saves memory and time, and it is safe because you do not need gradients during evaluation.
+User: What is a batch?
+Pip: A batch is a group of examples processed together in one forward and backward pass. Bigger batches give smoother gradients but use more memory per step.
+User: What does a block size or context length control?
+Pip: It sets how many tokens the model sees at once. Attention cost grows with the square of this number, so doubling it roughly quadruples the attention work.
+User: Why does my model give the same output every time when generating?
+Pip: Check the sampling. Greedy decoding always picks the top token, so use sampling with a temperature above zero or a top-k filter to get variety.
+User: What does temperature do when sampling?
+Pip: Dividing the logits by a temperature below one makes the distribution sharper and more predictable. Above one makes it flatter and more random.
+User: What is a checkpoint?
+Pip: It is a saved snapshot of the weights, the optimizer state, the configuration, and the step count. Saving the optimizer state lets training resume without a restart.
+User: How do I save a model safely?
+Pip: Write to a temporary file first, then rename it over the real file. A crash during the write then leaves the previous checkpoint intact.
+User: Why does my model run out of memory on the GPU?
+Pip: Reduce the batch size, shorten the context, or use mixed precision. Check that you are not keeping old graphs alive by storing loss tensors in a list without calling item.
+User: What is mixed precision?
+Pip: It runs some operations in 16-bit floats while keeping the master weights in 32-bit. It roughly halves memory use and often speeds up training on modern GPUs.
+User: Does torch.compile always make things faster?
+Pip: Not always. It helps most on repeated work with stable shapes. The first call is slow because it compiles, so time several steps after the warm-up.
+User: How do I know if PyTorch is using my GPU?
+Pip: Run torch.cuda.is_available() on NVIDIA hardware, or check torch.backends.mps.is_available() on Apple silicon. Then move both the model and the data with .to(device).
+User: Why is my CPU training so slow?
+Pip: A tiny model is often limited by Python overhead, not arithmetic. Larger batches, fewer evaluation passes, and setting torch.set_num_threads to match your core count help.
+User: What is an embedding layer?
+Pip: It is a lookup table that maps each integer token id to a learned vector. The first layer of a language model is almost always one.
+User: What does weight tying mean?
+Pip: The output projection reuses the embedding matrix. It saves parameters and often helps a small model, because the input and output share one view of the vocabulary.
+User: What is layer normalization for?
+Pip: It rescales each token's features to zero mean and unit variance across the embedding dimension. That keeps activations in a stable range through the network.
+User: What is a residual connection?
+Pip: It adds the input of a block back to its output. The gradient can then flow straight through the addition, which makes deep networks much easier to train.
+User: What does causal attention mean?
+Pip: Each position can only attend to earlier positions and itself. A mask blocks the future, so the model learns to predict the next token without seeing it.
+User: Why is my generated text repeating itself?
+Pip: Small models often loop when sampling is too greedy. Raise the temperature a little or use top-k sampling, and check that the context is not being truncated in a way that loses the prompt.
+User: What is cross entropy loss?
+Pip: It measures how far the predicted probability of the correct token is from one. Lower is better, and a perfect prediction gives zero.
+User: Why do we use perplexity?
+Pip: It is the exponential of the cross entropy loss. It is easier to read because it roughly tells you how many choices the model is uncertain between on average.
+User: How many parameters does my model have?
+Pip: Sum the element counts of every parameter tensor with a line like sum(p.numel() for p in model.parameters()). Tied weights should be counted once.
+User: My checkpoint loads but the vocabulary is wrong.
+Pip: The character to id mapping must be saved with the checkpoint and reused. If new characters appear, append them with new ids and never reassign existing ids.
+User: What is the difference between a Dataset and a DataLoader in PyTorch?
+Pip: A Dataset knows how to fetch one example. A DataLoader groups examples into batches, shuffles them, and can load them in parallel workers.
+User: Should I use float32 or float16 for a small model on CPU?
+Pip: Use float32. Most CPUs do not speed up float16 math, and float32 avoids precision problems during training.
+User: What is a seed and why set it?
+Pip: A seed fixes the random number generator so runs are repeatable. Set it for weight initialization and batch sampling so you can compare two runs fairly.
+User: How do I resume training after an interruption?
+Pip: Load the model weights, the optimizer state, and the step number from the checkpoint. Then continue the loop from that step, and offset the random seed so you do not repeat the same batches.
+User: What does model.parameters() return?
+Pip: An iterator over every learnable tensor in the model. Pass it to the optimizer so it knows what to update.
