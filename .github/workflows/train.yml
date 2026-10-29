@@ -1,0 +1,74 @@
+name: Train tinyPIP-0
+
+on:
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: "Total training steps to reach (train.py --steps)"
+        required: true
+        default: "20000"
+        type: string
+      huge_data:
+        description: "Fetch SmolTalk data first (train.sh --huge-data)"
+        required: false
+        default: false
+        type: boolean
+      max_mb:
+        description: "MB of SmolTalk data to fetch when huge_data is true (--max-mb)"
+        required: false
+        default: "15"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # CPU-only torch keeps the install small on the runner; requirements.txt is still installed below
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r requirements.txt
+
+      - name: Validate inputs
+        env:
+          STEPS: ${{ inputs.steps }}
+          MAX_MB: ${{ inputs.max_mb }}
+        run: |
+          case "$STEPS" in ''|*[!0-9]*) echo "steps must be a non-negative integer"; exit 1 ;; esac
+          case "$MAX_MB" in ''|*[!0-9]*) echo "max_mb must be a positive integer"; exit 1 ;; esac
+
+      - name: Train
+        env:
+          STEPS: ${{ inputs.steps }}
+          HUGE_DATA: ${{ inputs.huge_data }}
+          MAX_MB: ${{ inputs.max_mb }}
+        run: |
+          if [ "$HUGE_DATA" = "true" ]; then
+            bash train.sh --huge-data --max-mb "$MAX_MB" --steps "$STEPS"
+          else
+            bash train.sh --steps "$STEPS"
+          fi
+
+      - name: Upload checkpoint artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tinypip0-checkpoint-run-${{ github.run_number }}
+          path: out/tinypip0.pt
+          if-no-files-found: error
+          retention-days: 14
