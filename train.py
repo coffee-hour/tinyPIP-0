@@ -7,6 +7,10 @@ Resume:   python train.py                          (auto-resumes if out/tinypip0
           python train.py --resume path/to/x.pt    (resume from a specific file)
 Scratch:  python train.py --scratch                (ignore any existing checkpoint)
 Output:   out/tinypip0.pt (weights, config, vocabulary, optimizer state, step)
+
+If data_phase2.txt exists next to this file, it is appended to input.txt in memory
+(input.txt is only read, never written). Delete or rename data_phase2.txt to train
+on input.txt alone.
 """
 import argparse
 import os
@@ -19,6 +23,7 @@ from model import Config, TinyPIP, count_params
 
 DATA_URL = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
 DATA_PATH = "input.txt"
+PHASE2_PATH = "data_phase2.txt"
 OUT_DIR = "out"
 DEFAULT_CKPT = os.path.join(OUT_DIR, "tinypip0.pt")
 
@@ -72,11 +77,20 @@ def pick_device():
 
 
 def load_text():
+    """Return input.txt, with data_phase2.txt appended when that file exists."""
     if not os.path.exists(DATA_PATH):
         print("Downloading TinyShakespeare...")
         urllib.request.urlretrieve(DATA_URL, DATA_PATH)
     with open(DATA_PATH, "r", encoding="utf-8") as f:
-        return f.read()
+        text = f.read()
+    if os.path.exists(PHASE2_PATH):
+        with open(PHASE2_PATH, "r", encoding="utf-8") as f:
+            extra = f.read()
+        if text and not text.endswith("\n"):
+            text += "\n"
+        text += extra
+        print(f"loaded {PHASE2_PATH} ({len(extra):,} chars) after {DATA_PATH}")
+    return text
 
 
 def find_resume_path(args):
