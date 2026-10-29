@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tinyPIP-0 one-command launcher. Installs deps if torch is missing, reports the device,
+# tinyPIP-0 one-command launcher. Installs requirements.txt if torch or numpy is missing, reports the device,
 # and runs train.py (which downloads input.txt if missing and auto-resumes from out/tinypip0.pt).
 # Usage: bash train.sh [train.py flags, e.g. --steps 6000 or --scratch]
 set -euo pipefail
@@ -11,7 +11,7 @@ elif command -v python >/dev/null 2>&1; then PY=python
 else echo "ERROR: Python 3 not found." >&2; exit 1
 fi
 
-if ! "$PY" -c "import torch" >/dev/null 2>&1; then
+if ! "$PY" -c "import torch, numpy" >/dev/null 2>&1; then
   echo "Installing dependencies from requirements.txt..."
   "$PY" -m pip install -q -r requirements.txt
 fi
