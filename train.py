@@ -11,11 +11,18 @@ Output:   out/tinypip0.pt (weights, config, vocabulary, optimizer state, step)
 If data_phase2.txt exists next to this file, it is appended to input.txt in memory
 (input.txt is only read, never written). Delete or rename data_phase2.txt to train
 on input.txt alone.
+
+Vocabulary growth: when resuming, characters already in the checkpoint keep their
+ids. Any new characters in the training text are appended with new ids. The token
+embedding (shared with lm_head) is expanded to the new size: old rows are copied
+unchanged, new rows are initialized with N(0, 0.02), and the AdamW moments for the
+new rows start at zero. Resuming therefore never requires --scratch because of
+vocabulary changes. The vocabulary never shrinks.
 """
 import argparse
 import os
 import urllib.request
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 import torch
 
@@ -33,6 +40,7 @@ EVAL_EVERY = 500
 EVAL_ITERS = 50
 LR = 3e-3
 SEED = 1337
+EMBED_INIT_STD = 0.02
 
 
 def parse_args():
@@ -106,6 +114,56 @@ def find_resume_path(args):
     return None
 
 
+def build_vocab(text, old_itos=None):
+    """Return (itos, new_chars).
+
+    Without a checkpoint, ids are assigned to the sorted characters of text.
+    With a checkpoint, every existing id is kept and characters that are not yet
+    in the vocabulary are appended in sorted order.
+    """
+    if old_itos is None:
+        return dict(enumerate(sorted(set(text)))), []
+    itos = dict(old_itos)
+    known = set(itos.values())
+    next_id = max(itos) + 1 if itos else 0
+    new_chars = sorted(set(text) - known)
+    for ch in new_chars:
+        itos[next_id] = ch
+        next_id += 1
+    return itos, new_chars
+
+
+def resize_embedding_state(state, new_vocab):
+    """Grow tok_emb.weight (and the tied lm_head.weight) to new_vocab rows.
+
+    Existing rows are copied unchanged. New rows are drawn from N(0, EMBED_INIT_STD).
+    """
+    old = state["tok_emb.weight"]
+    n_old, dim = old.shape
+    if new_vocab < n_old:
+        raise SystemExit(f"vocabulary cannot shrink ({n_old} -> {new_vocab})")
+    new = torch.empty(new_vocab, dim, dtype=old.dtype, device=old.device)
+    torch.nn.init.normal_(new, mean=0.0, std=EMBED_INIT_STD)
+    new[:n_old] = old
+    state = dict(state)
+    state["tok_emb.weight"] = new
+    if "lm_head.weight" in state:
+        state["lm_head.weight"] = new  # keep the weight tying
+    return state
+
+
+def pad_optimizer_state(opt_state, params):
+    """Zero-pad AdamW moment tensors whose first dimension grew with the vocabulary."""
+    for idx, st in opt_state["state"].items():
+        p = params[int(idx)]
+        for k, v in list(st.items()):
+            if (torch.is_tensor(v) and v.dim() > 0 and v.shape != p.shape
+                    and v.shape[1:] == p.shape[1:] and v.shape[0] < p.shape[0]):
+                pad = torch.zeros(p.shape[0] - v.shape[0], *v.shape[1:], dtype=v.dtype, device=v.device)
+                st[k] = torch.cat([v, pad], dim=0)
+    return opt_state
+
+
 def save_checkpoint(path, model, cfg, itos, opt, step):
     """Write atomically so an interrupted save cannot corrupt an existing checkpoint."""
     d = os.path.dirname(path)
@@ -128,33 +186,44 @@ def main():
     device = pick_device()
     text = load_text()
 
-    chars = sorted(set(text))
-    stoi = {ch: i for i, ch in enumerate(chars)}
-    itos = {i: ch for ch, i in stoi.items()}
+    resume_path = find_resume_path(args)
+    ckpt = None
+    old_itos = None
+    start_step = 0
+    if resume_path is not None:
+        ckpt = torch.load(resume_path, map_location=device, weights_only=False)
+        old_itos = {int(k): v for k, v in ckpt["itos"].items()}
+
+    itos, new_chars = build_vocab(text, old_itos)
+    stoi = {ch: i for i, ch in itos.items()}
     data = torch.tensor([stoi[c] for c in text], dtype=torch.long)
 
     n = int(0.9 * len(data))
     train_data, val_data = data[:n], data[n:]
 
-    resume_path = find_resume_path(args)
-    ckpt = None
-    start_step = 0
-    if resume_path is not None:
-        ckpt = torch.load(resume_path, map_location=device, weights_only=False)
-        if ckpt["itos"] != itos:
-            raise SystemExit(
-                "checkpoint vocabulary does not match the current training text; "
-                "use --scratch to train a new model")
+    vocab_grew = False
+    if ckpt is not None:
         cfg = Config(**ckpt["config"])
+        old_vocab = cfg.vocab_size
+        state = ckpt["model"]
+        if len(itos) != old_vocab:
+            if len(itos) < old_vocab:
+                raise SystemExit("vocabulary shrank below the checkpoint size; this should not happen")
+            vocab_grew = True
+            cfg = replace(cfg, vocab_size=len(itos))
+            state = resize_embedding_state(state, len(itos))
+            added = [ch for ch in new_chars]
+            print(f"vocabulary grew from {old_vocab} to {len(itos)} characters; "
+                  f"added {added!r}")
         model = TinyPIP(cfg).to(device)
-        model.load_state_dict(ckpt["model"])
+        model.load_state_dict(state)
         start_step = int(ckpt.get("step", 0))
         print(f"resuming from {resume_path} at step {start_step}")
     else:
-        cfg = Config(vocab_size=len(chars))
+        cfg = Config(vocab_size=len(itos))
         model = TinyPIP(cfg).to(device)
         print("starting from scratch")
-    print(f"device={device} vocab={len(chars)} params={count_params(model):,}")
+    print(f"device={device} vocab={len(itos)} params={count_params(model):,}")
 
     if start_step >= args.steps:
         print(f"checkpoint is already at step {start_step} (>= --steps {args.steps}); nothing to do")
@@ -162,7 +231,10 @@ def main():
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.1)
     if ckpt is not None and "optimizer" in ckpt:
-        opt.load_state_dict(ckpt["optimizer"])
+        saved_opt = ckpt["optimizer"]
+        if vocab_grew:
+            saved_opt = pad_optimizer_state(saved_opt, list(model.parameters()))
+        opt.load_state_dict(saved_opt)
         for group in opt.param_groups:
             group["lr"] = args.lr  # honor --lr instead of the value saved in the checkpoint
     elif ckpt is not None:
