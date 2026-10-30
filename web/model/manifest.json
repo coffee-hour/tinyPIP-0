@@ -97,7 +97,7 @@
   "86": "|",
   "87": "~"
  },
- "step": 30000,
+ "step": 20000,
  "tensors": {
   "blocks.0.attn.proj.weight": {
    "shape": [
