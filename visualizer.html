@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tinyPIP-0 visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root { --amber: #ffb000; --bg: #0d0d0d; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background: var(--bg); color: var(--amber);
+    font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 15px; line-height: 1.5;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 24px 0 8px; border-bottom: 1px solid var(--amber); padding-bottom: 4px; }
+  p, li { color: var(--amber); }
+  .dim { opacity: 0.6; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .card { border: 1px solid var(--amber); padding: 12px; }
+  label { display: block; margin-top: 10px; }
+  input[type=range] { width: 100%; accent-color: var(--amber); }
+  input[type=number] {
+    width: 100%; background: var(--bg); color: var(--amber);
+    border: 1px solid var(--amber); padding: 4px; font: inherit;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 4px 6px; border-bottom: 1px dashed rgba(255,176,0,0.35); }
+  td.num { text-align: right; }
+  .big { font-size: 28px; font-weight: 700; }
+  .warn { color: #ff6b00; }
+  pre { border: 1px solid var(--amber); padding: 10px; overflow-x: auto; }
+  a { color: var(--amber); }
+</style>
+</head>
+<body>
+
+<h1>tinyPIP-0</h1>
+<p class="dim">A ~111k parameter character-level transformer. Zero build step. Open this file in any browser.</p>
+
+<h2>Parameter calculator</h2>
+<div class="grid">
+  <div class="card">
+    <label>Embedding dim (n_embd): <span id="v-embd"></span>
+      <input type="range" id="embd" min="32" max="256" step="32" value="64"></label>
+    <label>Layers (n_layer): <span id="v-layer"></span>
+      <input type="range" id="layer" min="1" max="6" step="1" value="2"></label>
+    <label>Heads (n_head): <span id="v-head"></span>
+      <input type="range" id="head" min="1" max="8" step="1" value="4"></label>
+    <label>Context (block_size): <span id="v-block"></span>
+      <input type="range" id="block" min="64" max="256" step="64" value="128"></label>
+    <label>Vocabulary size: <input type="number" id="vocab" value="65" min="2"></label>
+  </div>
+  <div class="card">
+    <div class="dim">total parameters</div>
+    <div class="big" id="total"></div>
+    <div id="warn" class="warn"></div>
+    <div class="dim" style="margin-top:8px">MLP width is 4 x n_embd. Biases are off in linear layers. Output head is tied to the token embedding.</div>
+  </div>
+</div>
+
+<h2>Parameter breakdown</h2>
+<table>
+  <tr><td>token embedding (vocab x dim)</td><td class="num" id="p-tok"></td></tr>
+  <tr><td>position embedding (block x dim)</td><td class="num" id="p-pos"></td></tr>
+  <tr><td>attention qkv + proj (per layer)</td><td class="num" id="p-attn"></td></tr>
+  <tr><td>MLP fc + proj (per layer)</td><td class="num" id="p-mlp"></td></tr>
+  <tr><td>layer norms (per layer)</td><td class="num" id="p-ln"></td></tr>
+  <tr><td>final layer norm</td><td class="num" id="p-lnf"></td></tr>
+  <tr><td><b>total</b></td><td class="num" id="p-total"></td></tr>
+</table>
+
+<h2>Architecture</h2>
+<pre>
+tokens  -> token embedding + position embedding
+        -> [ LayerNorm -> causal self-attention -> residual
+             LayerNorm -> MLP (GELU, 4x width) -> residual ] x n_layer
+        -> final LayerNorm
+        -> linear head (tied to token embedding)
+        -> next-character logits
+</pre>
+
+<h2>Run it</h2>
+<pre>
+pip install torch
+python train.py       # writes out/tinypip0.pt
+python generate.py --prompt "ROMEO:" --tokens 300
+</pre>
+
+<script>
+(function () {
+  var ids = ["embd", "layer", "head", "block"];
+  var vals = { embd: "v-embd", layer: "v-layer", head: "v-head", block: "v-block" };
+  function fmt(n) { return n.toLocaleString("en-US"); }
+  function calc() {
+    var C = +document.getElementById("embd").value;
+    var L = +document.getElementById("layer").value;
+    var H = +document.getElementById("head").value;
+    var B = +document.getElementById("block").value;
+    var V = +document.getElementById("vocab").value;
+    ids.forEach(function (id) {
+      document.getElementById(vals[id]).textContent = document.getElementById(id).value;
+    });
+    var tok = V * C;
+    var pos = B * C;
+    var attn = 4 * C * C;          // qkv (3C^2) + proj (C^2), no bias
+    var mlp = 8 * C * C;           // fc (4C^2) + proj (4C^2), no bias
+    var ln = 4 * C;                // two LayerNorms per block, weight + bias each
+    var perLayer = attn + mlp + ln;
+    var lnf = 2 * C;
+    var total = tok + pos + L * perLayer + lnf;
+    document.getElementById("total").textContent = fmt(total);
+    document.getElementById("p-tok").textContent = fmt(tok);
+    document.getElementById("p-pos").textContent = fmt(pos);
+    document.getElementById("p-attn").textContent = fmt(attn);
+    document.getElementById("p-mlp").textContent = fmt(mlp);
+    document.getElementById("p-ln").textContent = fmt(ln);
+    document.getElementById("p-lnf").textContent = fmt(lnf);
+    document.getElementById("p-total").textContent = fmt(total);
+    var w = document.getElementById("warn");
+    w.textContent = (C % H !== 0) ? "n_embd must be divisible by n_head" : "";
+  }
+  ids.forEach(function (id) { document.getElementById(id).addEventListener("input", calc); });
+  document.getElementById("vocab").addEventListener("input", calc);
+  calc();
+})();
+</script>
+</body>
+</html>
