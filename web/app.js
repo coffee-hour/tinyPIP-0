@@ -233,10 +233,10 @@
       itos.set(Number(k), ch);
       stoi.set(ch, Number(k));
     });
-    model = { config: manifest.config, tensors: manifest.tensors, weights: weights, itos: itos, stoi: stoi };
+    model = { config: manifest.config, step: manifest.step, tensors: manifest.tensors, weights: weights, itos: itos, stoi: stoi };
     sendBtn.disabled = false;
-    setStatus("ready · step " + manifest.step);
-    console.info("[tinyPIP-0] model ready: " + weights.length + " parameters, training step " + manifest.step);
+    setStatus("ready · step " + model.step);
+    console.info("[tinyPIP-0] model ready: " + weights.length + " parameters, training step " + model.step);
   }
 
   // Keep only characters the model knows. Report what was dropped.
@@ -292,7 +292,7 @@
     } finally {
       busy = false;
       sendBtn.disabled = false;
-      setStatus("ready · step " + model.config && "ready");
+      setStatus("ready · step " + model.step);
       input.focus();
     }
   });
